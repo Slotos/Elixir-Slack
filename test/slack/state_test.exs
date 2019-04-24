@@ -6,7 +6,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "channel_joined", channel: %{id: "123", members: ["123456", "654321"]}},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"].is_member == true
@@ -17,7 +17,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "channel_left", channel: "123"},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"].is_member == false
@@ -27,7 +27,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "channel_rename", channel: %{id: "123", name: "bar"}},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"].name == "bar"
@@ -37,7 +37,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "channel_archive", channel: "123"},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"].is_archived == true
@@ -47,7 +47,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "channel_unarchive", channel: "123"},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"].is_archived == false
@@ -57,7 +57,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "channel_unarchive", channel: "123"},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"].is_archived == false
@@ -67,29 +67,37 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "team_rename", name: "Bar"},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.team.name == "Bar"
   end
 
   test "team_join adds user to users" do
-    user_length = Map.size(slack().users)
+    user_length = Map.size(%Slack.State{}.users)
 
     new_slack =
       State.update(
         %{type: "team_join", user: %{id: "345"}},
-        slack()
+        %Slack.State{}
       )
 
     assert Map.size(new_slack.users) == user_length + 1
   end
 
-  test "user_change updates user" do
+  test "user_change updates user, merging fields" do
+    slack = %Slack.State{
+      users: %{
+        "123" => %{
+          name: "Bar",
+          presence: "active"
+        },
+      },
+    }
     new_slack =
       State.update(
         %{type: "user_change", user: %{id: "123", name: "bar"}},
-        slack()
+        slack
       )
 
     assert new_slack.users["123"].name == "bar"
@@ -97,12 +105,12 @@ defmodule Slack.StateTest do
   end
 
   test "bot_added adds bot to bots" do
-    bot_length = Map.size(slack().bots)
+    bot_length = Map.size(%Slack.State{}.bots)
 
     new_slack =
       State.update(
         %{type: "bot_added", bot: %{id: "345", name: "new"}},
-        slack()
+        %Slack.State{}
       )
 
     assert Map.size(new_slack.bots) == bot_length + 1
@@ -112,17 +120,29 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "bot_changed", bot: %{id: "123", name: "new"}},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.bots["123"].name == "new"
   end
 
   test "channel_join message should add member" do
+    slack = %Slack.State{
+      channels: %{
+        "123" => %{
+          id: 123,
+          name: "foo",
+          is_member: nil,
+          is_archived: nil,
+          members: ["U123"],
+          topic: %{value: "topic"}
+        }
+      },
+    }
     new_slack =
       State.update(
         %{type: "message", subtype: "channel_join", user: "U456", channel: "123"},
-        slack()
+        slack
       )
 
     assert new_slack.channels["123"].members |> Enum.sort() == ["U123", "U456"]
@@ -132,7 +152,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "message", subtype: "channel_leave", user: "U123", channel: "123"},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"].members == []
@@ -142,7 +162,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{presence: "testing", type: "presence_change", user: "123"},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.users["123"].presence == "testing"
@@ -152,7 +172,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{presence: "testing", type: "presence_change", users: ["123", "U2"]},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.users["123"].presence == "testing"
@@ -163,7 +183,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "group_joined", channel: %{id: "G123", members: ["U123", "U456"]}},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.groups["G123"]
@@ -180,7 +200,7 @@ defmodule Slack.StateTest do
           user: "U000",
           topic: "NewTopic"
         },
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.groups["G000"][:topic][:value] == "NewTopic"
@@ -196,7 +216,7 @@ defmodule Slack.StateTest do
           user: "U000",
           topic: "NewTopic"
         },
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.channels["123"][:topic][:value] == "NewTopic"
@@ -206,7 +226,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "message", subtype: "group_join", channel: "G000", user: "U000"},
-        slack()
+        %Slack.State{}
       )
 
     assert Enum.member?(new_slack.groups["G000"][:members], "U000")
@@ -216,7 +236,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "message", subtype: "group_leave", channel: "G000", user: "U111"},
-        slack()
+        %Slack.State{}
       )
 
     refute Enum.member?(new_slack.groups["G000"].members, "U111")
@@ -226,7 +246,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "group_left", channel: "G000"},
-        slack()
+        %Slack.State{}
       )
 
     refute new_slack.groups["G000"]
@@ -238,19 +258,30 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "im_created", channel: channel},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.ims == %{"C456" => channel}
   end
 
   test "user_change merges an existing user" do
+    slack = %Slack.State{
+      team: %{
+        name: "Foo"
+      },
+      users: %{
+        "123" => %{
+          name: "Bar",
+          presence: "active"
+        },
+      },
+    }
     user = %{id: "123", presence: "away", nickname: "Baz"}
 
     new_slack =
       State.update(
         %{type: "user_change", user: user},
-        slack()
+        slack
       )
 
     assert new_slack.users["123"] == %{
@@ -267,7 +298,7 @@ defmodule Slack.StateTest do
     new_slack =
       State.update(
         %{type: "user_change", user: user},
-        slack()
+        %Slack.State{}
       )
 
     assert new_slack.users["345"] == %{
@@ -275,46 +306,5 @@ defmodule Slack.StateTest do
              name: "Bar",
              presence: "active"
            }
-  end
-
-  defp slack do
-    %{
-      channels: %{
-        "123" => %{
-          id: 123,
-          name: "foo",
-          is_member: nil,
-          is_archived: nil,
-          members: ["U123"],
-          topic: %{value: "topic"}
-        }
-      },
-      team: %{
-        name: "Foo"
-      },
-      users: %{
-        "123" => %{
-          name: "Bar",
-          presence: "active"
-        },
-        "U2" => %{
-          name: "Baz",
-          presence: "away"
-        }
-      },
-      groups: %{
-        "G000" => %{
-          name: "secret-group",
-          members: ["U111", "U222"],
-          topic: %{value: "topic"}
-        }
-      },
-      bots: %{
-        "123" => %{
-          name: "Bot"
-        }
-      },
-      ims: %{}
-    }
   end
 end
